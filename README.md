@@ -207,7 +207,7 @@ build/                  resources/  (packaged)
 
 ## License
 
-wirechar source code is released under **GPL-2.0-only** (see [`License`](License)).
+wirechar source code is released under **GPL-2.0-only** (see [`License/GNU General Public License v2.0.txt`](License/GNU%20General%20Public%20License%20v2.0.txt)).
 
 This license was chosen because the distribution bundles WinDivert, whose
 kernel driver (`WinDivert64.sys`) is GPL-2.0. Bundling it under the
@@ -438,7 +438,7 @@ build/                   resources/  (패키징됨)
 
 ## 라이선스
 
-wirechar 소스코드는 **GPL-2.0-only** 라이선스로 배포됩니다 ([`License`](License) 참조).
+wirechar 소스코드는 **GPL-2.0-only** 라이선스로 배포됩니다 ([`License/GNU General Public License v2.0.txt`](License/GNU%20General%20Public%20License%20v2.0.txt) 참조).
 
 이 라이선스를 선택한 이유: 배포 파일에 WinDivert 커널 드라이버
 (`WinDivert64.sys`, GPL-2.0)가 번들되므로, 오픈소스 경로로 배포하려면
