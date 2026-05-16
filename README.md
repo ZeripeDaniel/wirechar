@@ -2,18 +2,20 @@
 
 A network traffic visualizer with a pixel-art character at its heart.
 
-Inspired by Wireshark but rebuilt around a different question: what would it
-look like if the packets flying through your NIC had a *personality*? A small
-pixel character stands on a dark grid. Every packet is a particle — incoming
-traffic flies toward it, outgoing traffic flies away. When the host is one of
-50+ well-known services (Discord, Naver, Google, YouTube, Anthropic, …) the
-particle renders as that brand's official logo. When the character gets
-flooded by an attacker, it switches to a defensive stance with shield and
-spear, and you can auto-block the source IP via Windows Firewall + WinDivert
-in real time.
+You don't need to understand packets to know what's happening on your network.
+wirechar turns every connection into a recognisable brand icon — Google,
+Discord, YouTube, Naver, and 50+ others — flying in and out of a pixel-art
+character on screen. Incoming traffic flies toward it, outgoing traffic flies
+away. If an unfamiliar icon keeps appearing, or something looks off, that's
+your cue to investigate: it could be adware, spyware, or a backdoor phoning
+home without your knowledge.
 
-It is not meant to replace Wireshark for forensics. It is meant to make 24/7
-network awareness feel less like staring at a terminal.
+For users who *do* read packets, the full Wireshark-style inspector, display
+filters, and hex dump are one click away. For everyone else, the icons tell
+the story at a glance.
+
+When a flood or port scan is detected the character raises its shield, and
+you can auto-block the attacker via Windows Firewall + WinDivert in real time.
 
 ![wirechar character icon](build/icons/icon-256.png)
 
@@ -235,18 +237,18 @@ Third-party components bundled in distribution builds:
 
 픽셀 아트 캐릭터를 중심에 둔 네트워크 트래픽 시각화 도구.
 
-Wireshark에서 영감을 받았지만 다른 질문에서 출발했습니다 — 만약 내 NIC를
-통과하는 패킷들에 *성격*이 있다면 어떤 모습일까? 어두운 격자 위에 작은
-픽셀 캐릭터가 서 있고, 모든 패킷은 파티클로 표현됩니다. 수신 트래픽은
-캐릭터를 향해 날아오고, 송신 트래픽은 캐릭터에서 밖으로 날아갑니다.
-호스트가 잘 알려진 서비스(디스코드, 네이버, 구글, 유튜브, Anthropic 등
-50종 이상)면 해당 브랜드의 공식 로고가 그대로 파티클로 표시됩니다.
-공격자가 캐릭터에 패킷을 쏟아붓기 시작하면 캐릭터는 방패와 창을 든
-방어 자세로 전환되고, Windows Firewall + WinDivert를 통해 공격자 IP를
-**실시간으로** 자동 차단할 수 있습니다.
+패킷을 읽을 줄 몰라도 괜찮습니다. wirechar는 내 PC가 인터넷과 주고받는
+모든 연결을 브랜드 아이콘으로 바꿔 보여줍니다 — 구글, 디스코드, 유튜브,
+네이버 등 50종 이상. 들어오는 트래픽은 캐릭터를 향해 날아오고, 나가는
+트래픽은 캐릭터에서 밖으로 날아갑니다. 낯선 아이콘이 계속 보이거나 뭔가
+이상하다 싶으면 그게 신호입니다 — 내 몰래 어딘가에 접속하는 애드웨어,
+스파이웨어, 백도어일 수 있습니다.
 
-포렌식 도구로 Wireshark를 대체하려는 건 아닙니다. **24/7 네트워크
-가시성을 터미널 응시 노동에서 해방시키는 것**이 목표입니다.
+패킷을 직접 분석하고 싶은 사용자를 위해선 Wireshark 스타일 인스펙터,
+display filter, hex dump가 한 클릭으로 바로 열립니다.
+
+flood나 포트 스캔이 감지되면 캐릭터가 방패를 들고, Windows Firewall +
+WinDivert를 통해 공격자 IP를 **실시간으로** 자동 차단할 수 있습니다.
 
 ![wirechar 캐릭터 아이콘](build/icons/icon-256.png)
 
