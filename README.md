@@ -28,6 +28,12 @@ you can auto-block the attacker via Windows Firewall + WinDivert in real time.
   inbound/outbound rendered as two parallel lines
 - 53+ real brand logos drawn directly from `simple-icons` (Discord, Naver,
   Google, YouTube, Cloudflare, AWS, Anthropic, …) using `Path2D` on canvas
+- **Manual brand tagging** — right-click any packet row → *Tag as brand…*
+  to assign one of the 50+ brand icons to any IP yourself; the mapping
+  persists across restarts and the icon appears immediately on the next
+  packet from that IP. Useful for IPs that have no observable hostname
+  (game servers, VoIP, IoT devices) or for confirming a suspicious IP is
+  actually a known service
 - Wireshark-style packet inspector at the bottom (packet list + layered
   detail tree + raw hex dump)
 - Wireshark display-filter syntax passed straight to `tshark -Y`
@@ -262,6 +268,11 @@ WinDivert를 통해 공격자 IP를 **실시간으로** 자동 차단할 수 있
 - `simple-icons`에서 추출한 **실제 브랜드 로고 53종 이상** —
   Discord, Naver, Google, YouTube, Cloudflare, AWS, Anthropic 등을
   캔버스 `Path2D`로 직접 그림
+- **브랜드 직접 지정** — 패킷 행 우클릭 → *Tag as brand…* 로 어떤 IP에든
+  브랜드 아이콘을 직접 지정할 수 있습니다. 지정 즉시 반영되고 재시작 후에도
+  유지됩니다. 호스트명이 노출되지 않는 IP(게임 서버, VoIP, IoT 기기)에
+  이름표를 붙이거나, 의심스러운 IP가 실제로 알려진 서비스인지 확인하는
+  용도로 유용합니다
 - Wireshark 스타일 패킷 인스펙터 (패킷 리스트 + 레이어 디테일 트리 +
   원본 hex dump)
 - Wireshark display-filter 문법을 그대로 `tshark -Y`에 전달
