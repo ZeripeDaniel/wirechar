@@ -1,0 +1,112 @@
+{
+  "name": "wirechar",
+  "version": "1.0.9",
+  "description": "Network traffic visualizer with pixel art character",
+  "main": "main.js",
+  "author": "wirechar",
+  "scripts": {
+    "start": "electron .",
+    "gen-icon": "node build/generate-icon.js",
+    "gen-brands": "node build/generate-brand-icons.js",
+    "fetch-wireshark": "node build/download-wireshark.js",
+    "fetch-windivert": "node build/download-windivert.js",
+    "build-helper": "build\\build-helper.bat",
+    "build:portable": "npm run gen-icon && npm run gen-brands && node build/build-portable.js",
+    "build:installer": "npm run gen-icon && npm run gen-brands && npm run fetch-wireshark && npm run fetch-windivert && npm run build-helper && electron-builder --win nsis",
+    "build:all": "npm run build:portable && npm run build:installer"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "simple-icons": "^11.15.0"
+  },
+  "build": {
+    "appId": "com.wirechar.app",
+    "productName": "wirechar",
+    "copyright": "Copyright © 2026 wirechar",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*",
+      "!**/*.{md,log}",
+      "!**/.{git,svn}"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "requireAdministrator",
+      "artifactName": "${productName}-${version}-${arch}-${ext}.${ext}",
+      "icon": "build/icons/wirechar.ico"
+    },
+    "extraResources": [
+      {
+        "from": "build/icons",
+        "to": "icons",
+        "filter": [
+          "tray-16.png",
+          "tray-32.png",
+          "wirechar.ico"
+        ]
+      },
+      {
+        "from": "build/wireshark",
+        "to": "wireshark",
+        "filter": [
+          "Wireshark-x64.exe"
+        ]
+      },
+      {
+        "from": "build/windivert",
+        "to": "windivert",
+        "filter": [
+          "WinDivert.dll",
+          "WinDivert64.sys",
+          "LICENSE"
+        ]
+      },
+      {
+        "from": "build/windivert-helper",
+        "to": "windivert",
+        "filter": [
+          "wirechar-divert.exe"
+        ]
+      }
+    ],
+    "nsis": {
+      "installerIcon": "build/icons/wirechar.ico",
+      "uninstallerIcon": "build/icons/wirechar.ico",
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "wirechar",
+      "uninstallDisplayName": "wirechar ${version}",
+      "include": "build/installer.nsh",
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "asar": true,
+    "compression": "normal"
+  }
+}

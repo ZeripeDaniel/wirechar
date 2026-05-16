@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+
+# Downloaded SDKs (fetched at build time via npm scripts)
+build/wireshark/
+build/windivert/WinDivert-*/
+build/windivert/include/
+build/windivert/WinDivert.dll
+build/windivert/WinDivert.lib
+build/windivert/WinDivert64.sys
+
+# Compiled native helper
+build/windivert-helper/*.exe
+build/windivert-helper/*.obj
+build/windivert-helper/*.pdb
+build/windivert-helper/*.ilk
+build/windivert-helper/*.exp
+build/windivert-helper/*.lib
+
+# Auto-generated at build time
+renderer/brand-icons-data.js
+build/icons/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime / user data
+ip-host-cache.json
+settings.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# IDE / editor
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vs/
+
+# Temp
+*.tmp
+*.temp
+~$*
