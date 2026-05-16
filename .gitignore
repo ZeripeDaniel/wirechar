@@ -23,7 +23,7 @@ build/windivert-helper/*.lib
 
 # Auto-generated at build time
 renderer/brand-icons-data.js
-build/icons/
+build/icons/*
 !build/icons/icon-256.png
 
 # Logs
