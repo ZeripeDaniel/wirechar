@@ -213,6 +213,7 @@ const attackingIPs = new Set();    // IPs currently flagged
 const confirmedIPs = new Set();    // confirmed sustained attackers
 const blockedIPs = new Set();      // IPs blocked by firewall
 let captureStartedByDefense = false;  // true if capture was auto-started for defense
+let userCapturing = false;            // true if user pressed btnCapture — gates packetList + normal-particle visibility
 
 // Attack history (ordered, oldest first)
 // entry = { id, ip, type, severity, pps, since, ended, endedAt, confirmed, confirmedAt, blocked, blockedAt }
@@ -223,14 +224,17 @@ let logFilter = 'all';
 const ATTACK_LOG_MAX = 200;        // hard cap to keep DOM render cheap
 const ATTACK_REUSE_WINDOW_MS = 5 * 60 * 1000;   // re-detect of same IP within 5 min reuses entry
 
-// Grid background lines (cached)
+// Grid background lines (cached, theme-aware)
 let gridCanvas = null;
 function rebuildGrid() {
   gridCanvas = document.createElement('canvas');
   gridCanvas.width = canvas.width;
   gridCanvas.height = canvas.height;
   const g = gridCanvas.getContext('2d');
-  g.strokeStyle = 'rgba(30,60,100,0.25)';
+  // Read live theme color from CSS so dark/light look right
+  const cssGrid = getComputedStyle(document.body).getPropertyValue('--grid').trim()
+                  || 'rgba(30,60,100,0.25)';
+  g.strokeStyle = cssGrid;
   g.lineWidth = 1;
   const step = 40;
   for (let x = 0; x < canvas.width; x += step) {
@@ -243,12 +247,17 @@ function rebuildGrid() {
 
 function drawOverlay() {
   const W = canvas.width, H = canvas.height;
+  const isLight = document.body.dataset.theme === 'light';
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.04)';
+  // Scanline texture: very subtle dark in dark, almost invisible in light
+  ctx.fillStyle = isLight ? 'rgba(80,100,140,0.025)' : 'rgba(0,0,0,0.04)';
   for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+  // Vignette from CSS variable (theme-aware)
+  const vignetteEnd = getComputedStyle(document.body).getPropertyValue('--canvas-vignette').trim()
+                     || 'rgba(0,0,20,0.5)';
   const vg = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.8);
-  vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, 'rgba(0,0,20,0.5)');
+  vg.addColorStop(0, isLight ? 'rgba(255,255,255,0)' : 'rgba(0,0,0,0)');
+  vg.addColorStop(1, vignetteEnd);
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
@@ -338,19 +347,36 @@ function handlePacketBatch(pkts) {
     updateSessionStats(pkt);
   }
 
-  // Prepend new packets; trim cap
-  if (pkts.length >= MAX_PACKETS) {
-    packets = pkts.slice(-MAX_PACKETS).reverse();
+  // Packet-list visibility policy:
+  //   userCapturing  → show everything (user opened the capture)
+  //   defense-only   → show ONLY attack packets (real-time traffic stays hidden)
+  //   neither        → nothing to show (capture wouldn't be running anyway)
+  let visiblePkts;
+  if (userCapturing) {
+    visiblePkts = pkts;
+  } else if (defenseMode !== 'off') {
+    visiblePkts = pkts.filter(p => p.direction === 'in' && attackingIPs.has(p.src));
   } else {
-    packets = pkts.slice().reverse().concat(packets);
-    if (packets.length > MAX_PACKETS) packets.length = MAX_PACKETS;
+    visiblePkts = [];
   }
-  listDirty = true;
+
+  if (visiblePkts.length > 0) {
+    if (visiblePkts.length >= MAX_PACKETS) {
+      packets = visiblePkts.slice(-MAX_PACKETS).reverse();
+    } else {
+      packets = visiblePkts.slice().reverse().concat(packets);
+      if (packets.length > MAX_PACKETS) packets.length = MAX_PACKETS;
+    }
+    listDirty = true;
+  }
 
   // Spawn particles (sampled if too many)
-  // Prioritize attack packets so user always sees the demon icons
+  // Same visibility rule: defense-only suppresses normal-traffic particles so
+  // the canvas reflects "stealth mode" — only attack particles fly in.
   const attackPkts = defenseMode !== 'off' ? pkts.filter(p => p.direction === 'in' && attackingIPs.has(p.src)) : [];
-  const normalPkts = defenseMode !== 'off' ? pkts.filter(p => !(p.direction === 'in' && attackingIPs.has(p.src))) : pkts;
+  const normalPkts = userCapturing
+    ? (defenseMode !== 'off' ? pkts.filter(p => !(p.direction === 'in' && attackingIPs.has(p.src))) : pkts)
+    : [];
 
   const available = Math.max(0, MAX_PARTICLES - particles.particles.length);
   let budget = Math.min(MAX_SPAWN_PER_BATCH, available);
@@ -976,47 +1002,87 @@ async function populateDevices() {
     statusBar.style.color = '#4cffaa';
   }
 
-  const ipv4 = localIPs.find(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip));
-  document.getElementById('localIPBadge').textContent = ipv4 || localIPs[0] || '—.—.—.—';
-
   if (!devices || devices.length === 0) {
+    // No interface to bind a per-device IP to → fall back to any local IPv4.
+    const fallback = localIPs.find(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip));
+    document.getElementById('localIPBadge').textContent = fallback || localIPs[0] || '—.—.—.—';
     statusBar.textContent = t('status_no_devices');
     deviceSelect.innerHTML = `<option>${escapeHtml(t('status_no_devices'))}</option>`;
     return;
   }
 
+  deviceIPMap.clear();
+  for (const d of devices) deviceIPMap.set(d.name, d.ip || null);
+
   deviceSelect.innerHTML = devices.map(d =>
     `<option value="${escapeHtml(d.name)}">${escapeHtml(d.description || d.name)}</option>`
   ).join('');
   selectedDevice = devices[0].name;
+  updateLocalIPBadge(selectedDevice, localIPs);
 }
 
-deviceSelect.addEventListener('change', () => { selectedDevice = deviceSelect.value; });
+// Map of tshark device name → IPv4 of the matching OS interface (or null).
+const deviceIPMap = new Map();
+
+function updateLocalIPBadge(deviceName, allLocalIPs) {
+  const el = document.getElementById('localIPBadge');
+  if (!el) return;
+  const perDevice = deviceIPMap.get(deviceName);
+  if (perDevice) { el.textContent = perDevice; return; }
+  // Fallback: first non-internal IPv4 we know about (prefer the cached set so
+  // this works on dropdown-change too, not only on the initial population).
+  const pool = Array.isArray(allLocalIPs) ? allLocalIPs : Array.from(localIPSet);
+  const v4 = pool.find(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip));
+  el.textContent = v4 || pool[0] || '—.—.—.—';
+}
+
+deviceSelect.addEventListener('change', () => {
+  selectedDevice = deviceSelect.value;
+  updateLocalIPBadge(selectedDevice);
+});
 
 btnCapture.addEventListener('click', async () => {
-  if (!capturing) {
-    if (!selectedDevice) {
-      statusBar.textContent = t('status_select_iface');
-      return;
-    }
-    const ok = await api.startCapture(selectedDevice, currentFilter);
-    if (ok) {
+  // The button toggles the USER-FACING capture view. tshark may already be
+  // running for defense; we just gate visibility.
+  if (!userCapturing) {
+    // Need tshark running before we can show packets.
+    if (!capturing) {
+      if (!selectedDevice) {
+        statusBar.textContent = t('status_select_iface');
+        return;
+      }
+      const ok = await api.startCapture(selectedDevice, currentFilter);
+      if (!ok) return;
       capturing = true;
-      captureStartedByDefense = false;     // user explicitly started → not defense-owned
-      btnCapture.textContent = t('capture_stop');
-      btnCapture.classList.add('active');
-      stats = { inBytes: 0, outBytes: 0, inCount: 0, outCount: 0, startTime: Date.now() };
-      lastSampleBytes = 0;
-      lastSampleTime = Date.now();
+    }
+    // User is taking ownership — even if defense started the process, the user
+    // now controls its lifetime so defense won't tear it down on mode change.
+    userCapturing = true;
+    captureStartedByDefense = false;
+    // Reset stats + clear list — user expects a fresh view when they hit Start.
+    stats = { inBytes: 0, outBytes: 0, inCount: 0, outCount: 0, startTime: Date.now() };
+    lastSampleBytes = 0;
+    lastSampleTime = Date.now();
+    packets = [];
+    listDirty = true;
+    btnCapture.textContent = t('capture_stop');
+    btnCapture.classList.add('active');
+  } else {
+    userCapturing = false;
+    btnCapture.textContent = t('capture_start');
+    btnCapture.classList.remove('active');
+    // If defense doesn't need tshark either, stop it entirely.
+    if (defenseMode === 'off') {
+      await api.stopCapture();
+      capturing = false;
+      captureStartedByDefense = false;
+    } else {
+      // Defense still wants tshark — hand ownership back so a later
+      // defense-off teardown can properly stop it.
+      captureStartedByDefense = true;
       packets = [];
       listDirty = true;
     }
-  } else {
-    await api.stopCapture();
-    capturing = false;
-    captureStartedByDefense = false;
-    btnCapture.textContent = t('capture_start');
-    btnCapture.classList.remove('active');
     statusBar.textContent = t('status_capture_stopped');
     statusBar.style.color = '#78909c';
   }
@@ -1034,12 +1100,11 @@ async function ensureCaptureRunning() {
   if (ok) {
     capturing = true;
     captureStartedByDefense = true;
-    btnCapture.textContent = t('capture_stop');
-    btnCapture.classList.add('active');
+    // Don't touch btnCapture — only userCapturing flips the visible state.
+    // Reset stats so detection counters start clean; packets[] stays empty
+    // because !userCapturing means nothing visible would render anyway.
     stats = { inBytes: 0, outBytes: 0, inCount: 0, outCount: 0, startTime: Date.now() };
     lastSampleBytes = 0; lastSampleTime = Date.now();
-    packets = [];
-    listDirty = true;
     return true;
   } else {
     statusBar.textContent = t('defense_no_tshark');
@@ -1049,12 +1114,11 @@ async function ensureCaptureRunning() {
 }
 
 async function maybeStopAutoCapture() {
-  if (capturing && captureStartedByDefense) {
+  // Only tear down tshark if user isn't currently viewing it.
+  if (capturing && captureStartedByDefense && !userCapturing) {
     await api.stopCapture();
     capturing = false;
     captureStartedByDefense = false;
-    btnCapture.textContent = t('capture_start');
-    btnCapture.classList.remove('active');
     statusBar.textContent = t('status_capture_stopped');
     statusBar.style.color = '#78909c';
   }
@@ -1104,6 +1168,8 @@ api.onCaptureError((msg) => {
   statusBar.textContent = `${t('status_error_prefix')} ${msg}`;
   statusBar.style.color = '#ff4444';
   capturing = false;
+  captureStartedByDefense = false;
+  userCapturing = false;
   btnCapture.textContent = t('capture_start');
   btnCapture.classList.remove('active');
 });
@@ -1795,6 +1861,8 @@ function init() {
 function startAfterResize() {
   character = new Character(canvas.width * 0.5, canvas.height * 0.5);
   particles = new ParticleSystem();
+  initTheme();          // sets body[data-theme] BEFORE first rebuildGrid
+  initFontControls();   // applies saved font family + size
   rebuildGrid();
   initLanguage();
   populateDevices().then(restoreDefenseMode);
@@ -1809,6 +1877,111 @@ async function loadVersion() {
     const el = document.getElementById('versionTag');
     if (el && v) el.textContent = 'v' + v;
   } catch (_) {}
+}
+
+// ── Theme (dark / light) ─────────────────────────────────────────────────────
+async function initTheme() {
+  let theme = 'dark';
+  try {
+    if (window.wirechar?.getSetting) {
+      theme = (await window.wirechar.getSetting('theme')) || 'dark';
+    }
+  } catch (_) {}
+  applyTheme(theme);
+
+  const btn = document.getElementById('themeToggle');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      const cur = document.body.dataset.theme || 'dark';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      try { await window.wirechar?.setSetting?.('theme', next); } catch (_) {}
+    });
+  }
+}
+
+function applyTheme(theme) {
+  document.body.dataset.theme = theme === 'light' ? 'light' : 'dark';
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'light' ? '☀' : '🌙';
+  // Cached canvas grid uses CSS var → must rebuild with new colors
+  if (gridCanvas) rebuildGrid();
+}
+
+// ── Font family + size ──────────────────────────────────────────────────────
+const AVAILABLE_FONTS = new Set([
+  'D2Coding', 'NanumGothic', 'NanumBarunGothic', 'NanumSquareNeo', 'NotoSansKR',
+]);
+const DEFAULT_FONT = 'D2Coding';
+const DEFAULT_SIZE = 14;
+
+async function initFontControls() {
+  let family = DEFAULT_FONT;
+  let size   = DEFAULT_SIZE;
+  try {
+    if (window.wirechar?.getSetting) {
+      const f = await window.wirechar.getSetting('fontFamily');
+      const s = await window.wirechar.getSetting('fontSize');
+      if (f && AVAILABLE_FONTS.has(f)) family = f;
+      if (s && !isNaN(+s)) size = Math.max(9, Math.min(32, +s));
+    }
+  } catch (_) {}
+
+  // Preload every bundled font up-front so dropdown switches are instant.
+  // Without this, @font-face only fetches on first use and the swap can lag.
+  preloadAllFonts();
+
+  await applyFont(family);
+  applyFontSize(size);
+
+  const famSel = document.getElementById('fontSelect');
+  const sizeSel = document.getElementById('fontSizeSelect');
+  if (famSel) {
+    famSel.value = family;
+    famSel.addEventListener('change', async () => {
+      const v = famSel.value;
+      if (!AVAILABLE_FONTS.has(v)) return;
+      await applyFont(v);
+      try { await window.wirechar?.setSetting?.('fontFamily', v); } catch (_) {}
+    });
+  }
+  if (sizeSel) {
+    sizeSel.value = String(size);
+    sizeSel.addEventListener('change', async () => {
+      const v = +sizeSel.value;
+      if (isNaN(v)) return;
+      applyFontSize(v);
+      try { await window.wirechar?.setSetting?.('fontSize', v); } catch (_) {}
+    });
+  }
+}
+
+function preloadAllFonts() {
+  if (!document.fonts || !document.fonts.load) return;
+  for (const fam of AVAILABLE_FONTS) {
+    try { document.fonts.load(`16px '${fam}'`); } catch (_) {}
+  }
+}
+
+async function applyFont(family) {
+  // Wait for the actual font face to be ready before flipping the CSS var,
+  // so the swap is visibly instant instead of relying on font-display: swap.
+  try {
+    if (document.fonts && document.fonts.load) {
+      await document.fonts.load(`16px '${family}'`);
+    }
+  } catch (_) {}
+  // Prepend selected family; keep fallback chain to system mono for safety.
+  const fallback = (family === 'D2Coding')
+    ? `'Courier New', Courier, monospace`
+    : `system-ui, -apple-system, sans-serif`;
+  document.documentElement.style.setProperty('--font', `'${family}', ${fallback}`);
+  // Force a reflow so any cached glyph runs are invalidated immediately.
+  void document.body.offsetHeight;
+}
+
+function applyFontSize(px) {
+  document.documentElement.style.setProperty('--ui-font-size', `${px}px`);
 }
 
 // Restore previous defense mode (always-on use case) — runs after device list

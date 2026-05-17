@@ -89,16 +89,31 @@ wirechar will install, but packet capture will not work until Wireshark is insta
 
 ; ──────────────────────────────────────────────────────────────────────────
 ; 3) Uninstall: stop + delete the WinDivert service so the .sys isn't pinned
+;
+; IMPORTANT: electron-builder runs the previous uninstaller silently (/S) at
+; the start of an UPGRADE install. We must NOT wipe blocked-IP firewall rules
+; on upgrade — only on a real uninstall (user removed it from Add/Remove).
+; `IfSilent` is true under both /S and the upgrade flow, so cleanup only runs
+; when the user actively launched the uninstaller (non-silent).
 ; ──────────────────────────────────────────────────────────────────────────
 !macro customUnInstall
-  DetailPrint "Cleaning up WinDivert driver service…"
-  nsExec::ExecToLog 'sc.exe stop WinDivert'
-  Pop $0
-  nsExec::ExecToLog 'sc.exe delete WinDivert'
-  Pop $0
+  IfSilent skipCleanup doCleanup
 
-  ; Also remove any wirechar firewall rules left behind by Auto-Block mode
-  DetailPrint "Cleaning up wirechar firewall rules…"
-  nsExec::ExecToLog 'cmd /c for /f "tokens=*" %%R in (^"netsh advfirewall firewall show rule name=all ^| findstr Wirechar-Block-^") do @netsh advfirewall firewall delete rule name=%%R'
-  Pop $0
+  doCleanup:
+    DetailPrint "Cleaning up WinDivert driver service…"
+    nsExec::ExecToLog 'sc.exe stop WinDivert'
+    Pop $0
+    nsExec::ExecToLog 'sc.exe delete WinDivert'
+    Pop $0
+
+    ; Also remove any wirechar firewall rules left behind by Auto-Block mode
+    DetailPrint "Cleaning up wirechar firewall rules…"
+    nsExec::ExecToLog 'cmd /c for /f "tokens=*" %%R in (^"netsh advfirewall firewall show rule name=all ^| findstr Wirechar-Block-^") do @netsh advfirewall firewall delete rule name=%%R'
+    Pop $0
+    Goto cleanupDone
+
+  skipCleanup:
+    DetailPrint "Silent uninstall detected (upgrade) — preserving firewall rules + WinDivert service."
+
+  cleanupDone:
 !macroend

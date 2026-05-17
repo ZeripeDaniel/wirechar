@@ -44,23 +44,57 @@ class PacketCapture extends EventEmitter {
     return this.tshark !== null;
   }
 
-  // Returns a promise resolving to array of { name, description }
+  // Returns a promise resolving to array of { name, description, ip }
+  // `ip` is the IPv4 address of the matching OS interface (best-effort match
+  // by friendly name), or null when no association can be found.
   getDevices() {
     return new Promise((resolve) => {
       if (!this.tshark) return resolve([]);
       execFile(this.tshark, ['-D'], { timeout: 5000 }, (err, stdout) => {
         if (err) return resolve([]);
+        const ifaceIPMap = this._buildInterfaceIPMap();
         const devices = [];
         for (const line of stdout.split('\n')) {
           // Format: "1. \Device\NPF_{GUID} (Description)"
           const m = line.match(/^\d+\.\s+(\S+)\s*\((.+)\)/);
           if (m) {
-            devices.push({ name: m[1], description: m[2].trim() });
+            const description = m[2].trim();
+            const ip = this._matchInterfaceIP(description, ifaceIPMap);
+            devices.push({ name: m[1], description, ip });
           }
         }
         resolve(devices);
       });
     });
+  }
+
+  // friendlyName → first non-internal IPv4 (e.g. "Wi-Fi" → "192.168.0.165")
+  _buildInterfaceIPMap() {
+    const map = new Map();
+    const ifaces = os.networkInterfaces();
+    for (const name of Object.keys(ifaces)) {
+      for (const iface of ifaces[name]) {
+        if (!iface.internal && iface.family === 'IPv4') {
+          if (!map.has(name)) map.set(name, iface.address);
+        }
+      }
+    }
+    return map;
+  }
+
+  // tshark's -D description is usually the OS friendly name (e.g. "Wi-Fi").
+  // Fall back to case-insensitive and partial matches for vendor descriptions.
+  _matchInterfaceIP(description, ifaceMap) {
+    if (ifaceMap.has(description)) return ifaceMap.get(description);
+    const low = description.toLowerCase();
+    for (const [key, ip] of ifaceMap) {
+      if (key.toLowerCase() === low) return ip;
+    }
+    for (const [key, ip] of ifaceMap) {
+      const k = key.toLowerCase();
+      if (low.includes(k) || k.includes(low)) return ip;
+    }
+    return null;
   }
 
   start(deviceName, displayFilter) {

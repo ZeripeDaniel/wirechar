@@ -28,6 +28,9 @@ const STRINGS = {
   defense_attacking:       { en: 'attacking',                     ko: '공격 중' },
   defense_blocked:         { en: 'blocked',                       ko: '차단됨' },
   lang_tooltip:            { en: 'Language',                      ko: '언어' },
+  theme_toggle_tip:        { en: 'Toggle dark / light',           ko: '다크 / 라이트 전환' },
+  font_tooltip:            { en: 'Font family',                   ko: '글꼴' },
+  font_size_tooltip:       { en: 'Font size (px)',                ko: '글꼴 크기 (px)' },
 
   // ── Toolbar ──
   interface_label:         { en: 'Interface:',                    ko: '인터페이스:' },

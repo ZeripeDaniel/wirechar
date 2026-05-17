@@ -595,7 +595,7 @@ ipcMain.handle('detector-stats', () => ({
 // ── Generic settings get/set (for defenseMode, logPolicy etc.) ──
 ipcMain.handle('get-setting', (_, key) => settings.get(key, null));
 ipcMain.handle('set-setting', (_, key, value) => {
-  const allowed = new Set(['defenseMode', 'logPolicy']);
+  const allowed = new Set(['defenseMode', 'logPolicy', 'theme', 'fontFamily', 'fontSize']);
   if (!allowed.has(key)) return false;
   settings.set(key, value);
   // Hot-apply settings that affect behavior

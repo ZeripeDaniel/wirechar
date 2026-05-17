@@ -2,20 +2,18 @@
 
 A network traffic visualizer with a pixel-art character at its heart.
 
-You don't need to understand packets to know what's happening on your network.
-wirechar turns every connection into a recognisable brand icon — Google,
-Discord, YouTube, Naver, and 50+ others — flying in and out of a pixel-art
-character on screen. Incoming traffic flies toward it, outgoing traffic flies
-away. If an unfamiliar icon keeps appearing, or something looks off, that's
-your cue to investigate: it could be adware, spyware, or a backdoor phoning
-home without your knowledge.
+Inspired by Wireshark but rebuilt around a different question: what would it
+look like if the packets flying through your NIC had a *personality*? A small
+pixel character stands on a dark grid. Every packet is a particle — incoming
+traffic flies toward it, outgoing traffic flies away. When the host is one of
+50+ well-known services (Discord, Naver, Google, YouTube, Anthropic, …) the
+particle renders as that brand's official logo. When the character gets
+flooded by an attacker, it switches to a defensive stance with shield and
+spear, and you can auto-block the source IP via Windows Firewall + WinDivert
+in real time.
 
-For users who *do* read packets, the full Wireshark-style inspector, display
-filters, and hex dump are one click away. For everyone else, the icons tell
-the story at a glance.
-
-When a flood or port scan is detected the character raises its shield, and
-you can auto-block the attacker via Windows Firewall + WinDivert in real time.
+It is not meant to replace Wireshark for forensics. It is meant to make 24/7
+network awareness feel less like staring at a terminal.
 
 ![wirechar character icon](build/icons/icon-256.png)
 
@@ -28,12 +26,6 @@ you can auto-block the attacker via Windows Firewall + WinDivert in real time.
   inbound/outbound rendered as two parallel lines
 - 53+ real brand logos drawn directly from `simple-icons` (Discord, Naver,
   Google, YouTube, Cloudflare, AWS, Anthropic, …) using `Path2D` on canvas
-- **Manual brand tagging** — right-click any packet row → *Tag as brand…*
-  to assign one of the 50+ brand icons to any IP yourself; the mapping
-  persists across restarts and the icon appears immediately on the next
-  packet from that IP. Useful for IPs that have no observable hostname
-  (game servers, VoIP, IoT devices) or for confirming a suspicious IP is
-  actually a known service
 - Wireshark-style packet inspector at the bottom (packet list + layered
   detail tree + raw hex dump)
 - Wireshark display-filter syntax passed straight to `tshark -Y`
@@ -83,9 +75,15 @@ you can auto-block the attacker via Windows Firewall + WinDivert in real time.
   + packet count + last seen)
 - Statistics tab: top talkers, protocol distribution, classifier breakdown,
   session summary, disk-log path
+- **Dark / light theme** toggle, **per-interface local-IP badge**,
+  **bundled font picker** (D2Coding / NanumGothic / NanumBarunGothic /
+  NanumSquareNeo / NotoSansKR) and **UI font-size selector** — all persisted
 - Bilingual UI (English / 한국어) with first-run language picker and live
   switching from the title bar dropdown; native dialogs and the tray menu
   are translated too
+- **Capture button and Defense mode are independent**: defense can run in
+  "stealth mode" with the live packet list and ambient particles hidden
+  while attack detection keeps running silently in the background
 - Minimise to system tray (character pixel art is the tray icon); capture
   and defense keep running when the window is hidden
 - Tray menu: show/hide, defense mode, logging policy, open logs folder, quit
@@ -127,8 +125,10 @@ Either way Windows will prompt for admin via UAC on launch.
 
 ## Configure
 
-- **Title bar** dropdown: language, defense mode (`Off` / `Detect` /
-  `Attack Detection + Auto-Block`).
+- **Title bar**: theme toggle (🌙/☀), font family, font size, language.
+- **Toolbar**: interface picker, **Capture** button, **Defense mode**
+  dropdown (`Off` / `Detect` / `Attack Detection + Auto-Block`),
+  Wireshark display filter.
 - **Tray menu** (right-click the character icon): show/hide window,
   defense mode, disk logging policy, open logs folder, quit.
 - **Inspector tabs**: switch between live, devices, stats, attack log.
@@ -138,7 +138,7 @@ Either way Windows will prompt for admin via UAC on launch.
   + CIDR + `field:value` queries.
 
 Settings persist to `<userData>/settings.json`:
-language, defense mode, logging policy.
+language, defense mode, logging policy, theme, font family, font size.
 
 ## Build from source
 
@@ -213,6 +213,42 @@ build/                  resources/  (packaged)
   Needs a switch SPAN port to see beyond your machine.
 - **Windows only**, x64. Linux / macOS ports are possible but not built.
 
+## Changelog
+
+### 1.0.10
+- **Defense mode UI separated from capture.** The `Defense` selector moved
+  from the title bar into the toolbar, right next to the `Capture` button.
+  Real-time packet list and ambient particles are now gated on whether the
+  user explicitly pressed `Capture` — defense alone runs in stealth, only
+  surfacing attack packets. Starting capture while defense is active
+  reveals the full feed; stopping it returns to stealth without tearing
+  down the underlying tshark process.
+- **Per-interface local-IP badge.** The IP shown in the title bar now
+  matches the IPv4 of the selected NIC instead of whichever interface
+  `os.networkInterfaces()` listed first. Switching the interface dropdown
+  updates the badge live.
+- **Dark / light theme.** Theme toggle in the title bar; persisted across
+  launches. Canvas grid + vignette adapt to the active theme.
+- **Bundled font picker + size selector.** Five Korean-friendly fonts
+  ship in the renderer (D2Coding, NanumGothic, NanumBarunGothic,
+  NanumSquareNeo, NotoSansKR). UI size is rem-based so every label, list
+  cell and panel header scales together (9–24 px range). Fonts are
+  preloaded at startup so dropdown switches are visually instant.
+- **NSIS upgrades preserve state.** The uninstaller's WinDivert-service
+  + firewall-rule cleanup now runs only on user-initiated removal. During
+  an upgrade install (electron-builder silently runs the old uninstaller)
+  blocked-IP rules and the driver service are kept intact.
+- **Same install folder on upgrade.** `appId` + `perMachine` means the
+  new version writes over `C:\Program Files\wirechar\` in place;
+  `%APPDATA%\wirechar\` (settings, IP cache, whitelist, logs) is
+  untouched.
+
+### Earlier
+See `git log` for 1.0.1 – 1.0.9. Highlights: WinDivert real-time blocking
+(1.0.5), userData log path under `%APPDATA%` (1.0.6), user whitelist + brand
+info in Attack Log (1.0.7), Discord voice CIDR + 8 s grace + PTR → detector
+sync (1.0.8), README + LICENSE shipped (1.0.9).
+
 ## License
 
 wirechar source code is released under **GPL-2.0-only** (see [`License/GNU General Public License v2.0.txt`](License/GNU%20General%20Public%20License%20v2.0.txt)).
@@ -243,18 +279,18 @@ Third-party components bundled in distribution builds:
 
 픽셀 아트 캐릭터를 중심에 둔 네트워크 트래픽 시각화 도구.
 
-패킷을 읽을 줄 몰라도 괜찮습니다. wirechar는 내 PC가 인터넷과 주고받는
-모든 연결을 브랜드 아이콘으로 바꿔 보여줍니다 — 구글, 디스코드, 유튜브,
-네이버 등 50종 이상. 들어오는 트래픽은 캐릭터를 향해 날아오고, 나가는
-트래픽은 캐릭터에서 밖으로 날아갑니다. 낯선 아이콘이 계속 보이거나 뭔가
-이상하다 싶으면 그게 신호입니다 — 내 몰래 어딘가에 접속하는 애드웨어,
-스파이웨어, 백도어일 수 있습니다.
+Wireshark에서 영감을 받았지만 다른 질문에서 출발했습니다 — 만약 내 NIC를
+통과하는 패킷들에 *성격*이 있다면 어떤 모습일까? 어두운 격자 위에 작은
+픽셀 캐릭터가 서 있고, 모든 패킷은 파티클로 표현됩니다. 수신 트래픽은
+캐릭터를 향해 날아오고, 송신 트래픽은 캐릭터에서 밖으로 날아갑니다.
+호스트가 잘 알려진 서비스(디스코드, 네이버, 구글, 유튜브, Anthropic 등
+50종 이상)면 해당 브랜드의 공식 로고가 그대로 파티클로 표시됩니다.
+공격자가 캐릭터에 패킷을 쏟아붓기 시작하면 캐릭터는 방패와 창을 든
+방어 자세로 전환되고, Windows Firewall + WinDivert를 통해 공격자 IP를
+**실시간으로** 자동 차단할 수 있습니다.
 
-패킷을 직접 분석하고 싶은 사용자를 위해선 Wireshark 스타일 인스펙터,
-display filter, hex dump가 한 클릭으로 바로 열립니다.
-
-flood나 포트 스캔이 감지되면 캐릭터가 방패를 들고, Windows Firewall +
-WinDivert를 통해 공격자 IP를 **실시간으로** 자동 차단할 수 있습니다.
+포렌식 도구로 Wireshark를 대체하려는 건 아닙니다. **24/7 네트워크
+가시성을 터미널 응시 노동에서 해방시키는 것**이 목표입니다.
 
 ![wirechar 캐릭터 아이콘](build/icons/icon-256.png)
 
@@ -268,11 +304,6 @@ WinDivert를 통해 공격자 IP를 **실시간으로** 자동 차단할 수 있
 - `simple-icons`에서 추출한 **실제 브랜드 로고 53종 이상** —
   Discord, Naver, Google, YouTube, Cloudflare, AWS, Anthropic 등을
   캔버스 `Path2D`로 직접 그림
-- **브랜드 직접 지정** — 패킷 행 우클릭 → *Tag as brand…* 로 어떤 IP에든
-  브랜드 아이콘을 직접 지정할 수 있습니다. 지정 즉시 반영되고 재시작 후에도
-  유지됩니다. 호스트명이 노출되지 않는 IP(게임 서버, VoIP, IoT 기기)에
-  이름표를 붙이거나, 의심스러운 IP가 실제로 알려진 서비스인지 확인하는
-  용도로 유용합니다
 - Wireshark 스타일 패킷 인스펙터 (패킷 리스트 + 레이어 디테일 트리 +
   원본 hex dump)
 - Wireshark display-filter 문법을 그대로 `tshark -Y`에 전달
@@ -319,9 +350,14 @@ WinDivert를 통해 공격자 IP를 **실시간으로** 자동 차단할 수 있
   패킷 수 + 마지막 활동 시각)
 - Statistics 탭: top talkers, 프로토콜 분포, 분류 태그 분포,
   세션 요약, 디스크 로그 경로
+- **다크 / 라이트 테마 전환**, **선택한 인터페이스 기준 로컬 IP 배지**,
+  **번들 폰트 선택** (D2Coding / 나눔고딕 / 나눔바른고딕 / 나눔스퀘어Neo /
+  Noto Sans KR), **UI 글꼴 크기 선택** — 모두 영구 저장
 - 한/영 양 언어 UI — 첫 실행 시 언어 선택 다이얼로그 +
   타이틀바 드롭다운으로 즉시 전환. 네이티브 다이얼로그와 트레이 메뉴도
   같이 번역
+- **캡처 버튼과 방어 모드 분리**: 방어 단독 동작 시 실시간 패킷 리스트와
+  일반 트래픽 파티클은 숨기고 공격 감지만 백그라운드로 조용히 수행
 - 시스템 트레이로 최소화 (캐릭터 픽셀 아트가 트레이 아이콘) —
   창 숨겨도 캡처 + 방어 계속 동작
 - 트레이 메뉴: 창 보이기/숨기기, 방어 모드, 로깅 정책,
@@ -363,8 +399,10 @@ GitHub Releases 페이지에서 빌드 받기:
 
 ## 설정
 
-- **타이틀바** 드롭다운: 언어, 방어 모드 (`Off` / `Detect` /
-  `Attack Detection + Auto-Block`).
+- **타이틀바**: 테마 토글(🌙/☀), 폰트, 글꼴 크기, 언어.
+- **툴바**: 인터페이스 선택, **캡처** 버튼, **방어 모드** 드롭다운
+  (`Off` / `Detect` / `Attack Detection + Auto-Block`),
+  Wireshark display filter.
 - **트레이 메뉴** (캐릭터 아이콘 우클릭): 창 표시/숨기기, 방어 모드,
   디스크 로깅 정책, 로그 폴더 열기, 종료.
 - **인스펙터 탭**: 라이브, 기기, 통계, 공격 로그 간 전환.
@@ -374,7 +412,7 @@ GitHub Releases 페이지에서 빌드 받기:
   + `필드:값` 쿼리.
 
 설정은 `<userData>/settings.json`에 저장됩니다:
-언어, 방어 모드, 로깅 정책.
+언어, 방어 모드, 로깅 정책, 테마, 폰트, 글꼴 크기.
 
 ## 소스에서 빌드하기
 
@@ -448,6 +486,40 @@ build/                   resources/  (패키징됨)
   닿는 트래픽만 봅니다 — 다른 VLAN / 다른 홈 네트워크는 안 보임.
   PC 밖을 보려면 스위치 SPAN 포트가 필요합니다.
 - **Windows 전용**, x64. Linux / macOS 포팅은 가능하지만 만들지 않음.
+
+## 변경 이력
+
+### 1.0.10
+- **방어 모드 UI를 캡처와 분리.** `방어 모드` 선택지가 타이틀바에서
+  툴바의 `Capture` 버튼 바로 옆으로 이동. 실시간 패킷 리스트와 일반
+  파티클 표시는 이제 **사용자가 직접 캡처 버튼을 눌렀는지**에만
+  반응함 — 방어만 켜진 상태에선 공격 패킷만 떠오르고 일상 트래픽은
+  숨겨짐(스텔스 모드). 방어가 켜져 있는 동안 캡처를 누르면 전체
+  피드가 즉시 표시되고, 다시 누르면 tshark는 그대로 둔 채 스텔스로
+  돌아감.
+- **인터페이스별 로컬 IP 배지.** 타이틀바 IP가 이제
+  `os.networkInterfaces()`가 맨 위에 올린 것 대신 **선택된 NIC의 IPv4**를
+  표시. 인터페이스 드롭다운 바꾸면 배지도 즉시 갱신.
+- **다크 / 라이트 테마.** 타이틀바에 토글 버튼 추가, 설정 영구 저장.
+  캔버스 그리드와 비네트도 테마에 맞춰 자동 변경.
+- **번들 폰트 + 글꼴 크기 선택.** 렌더러에 5종 한글 폰트 포함
+  (D2Coding, 나눔고딕, 나눔바른고딕, 나눔스퀘어Neo, Noto Sans KR).
+  UI는 rem 기반이라 라벨·리스트·패널 헤더가 모두 같은 비율로 스케일
+  (9 ~ 24 px). 시작 시 모든 폰트를 미리 로드해서 드롭다운 전환이
+  즉시 반영됨.
+- **NSIS 업그레이드 시 상태 보존.** 언인스톨러의 WinDivert 서비스 +
+  방화벽 룰 정리는 이제 **사용자가 직접 제거할 때만** 실행. 업그레이드
+  설치 중 electron-builder가 silent로 옛 언인스톨러를 부를 땐 차단 IP
+  룰과 드라이버 서비스 모두 그대로 유지.
+- **업그레이드해도 폴더 그대로.** `appId` + `perMachine` 덕에 새 버전은
+  `C:\Program Files\wirechar\` 같은 자리에 그대로 덮어쓰기.
+  `%APPDATA%\wirechar\` (설정, IP 캐시, 화이트리스트, 로그)도 손대지 않음.
+
+### 그 이전
+1.0.1 ~ 1.0.9 는 `git log` 참조. 주요 마일스톤: WinDivert 실시간 차단
+(1.0.5), 로그 폴더 `%APPDATA%` 이동(1.0.6), 사용자 화이트리스트 + Attack
+Log 의 브랜드 정보(1.0.7), 디스코드 음성 CIDR + 8 초 grace + PTR→detector
+동기화(1.0.8), README + LICENSE 동봉(1.0.9).
 
 ## 라이선스
 
