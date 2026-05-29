@@ -7,7 +7,8 @@
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ZeripeDaniel/wirechar&type=timeline&legend=top-left" />
  </picture>
 </a>
-# wirechar
+
+## wirechar
 
 A network traffic visualizer with a pixel-art character at its heart.
 
